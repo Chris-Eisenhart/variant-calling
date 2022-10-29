@@ -24,9 +24,15 @@ pipenv run pytest
 ## Contributing
 The style is black + isort + flake8, additionally type hinting is enforced via mypy. 
 
+```
+pipenv run black .
+pipenv run isort .
+pipenv run flake8 .
+pipenv run mypy .
+```
+
 Keep all functions under 100 lines, take time to name variables appropriately, do not solve a previously
 solved problem a different way.
 
 Reach out to Chris to get invited to the JIRA board! 
-
 
