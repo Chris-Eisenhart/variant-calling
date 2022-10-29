@@ -1,5 +1,5 @@
 # variant_calling
-# A repo to explore variant calling from alignments as well as some supporting infrastructure.
+## A repo to explore variant calling from fastq files as well as some supporting infrastructure.
 
 
 ## Setup
