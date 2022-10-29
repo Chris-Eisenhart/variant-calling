@@ -12,8 +12,8 @@ class Variant:
 
 
 def get_reverse_complement(dna):
-    complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'}
-    return ''.join([complement[base] for base in dna[::-1]])
+    complement = {"A": "T", "C": "G", "G": "C", "T": "A"}
+    return "".join([complement[base] for base in dna[::-1]])
 
 
 def parse_md_string(md_string: str) -> List[Tuple[int, str]]:
@@ -42,8 +42,10 @@ def parse_sam_flag(flag: int) -> bool:
         return bool(int(bin(flag)[-5]))
 
 
-def identify_and_validate_reference_bases(parsed_md_list: List[Tuple[int, str]], seq: str, qual: str, reverse_complement: bool) -> List[Tuple[int, str, str]]:
-    read_variant_list = [] # Parsed variant information from the reads perspective
+def identify_and_validate_reference_bases(
+    parsed_md_list: List[Tuple[int, str]], seq: str, qual: str, reverse_complement: bool
+) -> List[Tuple[int, str, str]]:
+    read_variant_list = []  # Parsed variant information from the reads perspective
     for md_element in parsed_md_list:
         base_count, ref_base = md_element
         if ref_base == "N":
@@ -99,12 +101,16 @@ def variant_calling_for_one_sam_record(
     chrom: str = sam_record["RNAME"]
     alignment_start_pos: int = int(sam_record["POS"])
     reverse_complement: bool = parse_sam_flag(int(sam_record["FLAG"]))
-    seq: str = sam_record['SEQ']
-    qual: str = sam_record['QUAL']
+    seq: str = sam_record["SEQ"]
+    qual: str = sam_record["QUAL"]
 
     # Call variants in this alignment
     parsed_md_list: List[Tuple[int, str]] = parse_md_string(sam_record["MD"])
-    read_variant_list: List[Tuple[int, str, str]] = identify_and_validate_reference_bases(parsed_md_list, seq, qual, reverse_complement)
+    read_variant_list: List[
+        Tuple[int, str, str]
+    ] = identify_and_validate_reference_bases(
+        parsed_md_list, seq, qual, reverse_complement
+    )
     variant_list = variant_call(
         chrom, alignment_start_pos, reverse_complement, read_variant_list
     )
@@ -123,28 +129,28 @@ def parse_cigar_string(cigar_string: str) -> List[Tuple[int, str]]:
 def get_coverage_data_for_one_sam_record(sam_record: Dict[str, Any]) -> List[int]:
     """
     Determine the valid reference bases that are covered by this alignment where a valid base
-    has a quality greater than or equal to 20 phred. 
+    has a quality greater than or equal to 20 phred.
 
-    BWA alignments are done from the reads perspective, every base is considered and reported. 
+    BWA alignments are done from the reads perspective, every base is considered and reported.
     """
     # Gather the necessary variables from the alignment
-    chrom: str = sam_record["RNAME"]
     alignment_start_pos: int = int(sam_record["POS"])
     reverse_complement: bool = parse_sam_flag(int(sam_record["FLAG"]))
-    seq: str = sam_record['SEQ']
-    qual: str = sam_record['QUAL']
+    qual: str = sam_record["QUAL"]
 
     # Process the string cigar into a machine readable list of tuples
     parsed_cigar_list: List[Tuple[int, str]] = parse_cigar_string(sam_record["CIGAR"])
-    position_list: List[int] = [] # The reference positions which are covered
-    current_position_in_ref = alignment_start_pos # The current position in the reference genome
-    current_position_in_read = 0 # The current position in the read
+    position_list: List[int] = []  # The reference positions which are covered
+    current_position_in_ref = (
+        alignment_start_pos  # The current position in the reference genome
+    )
+    current_position_in_read = 0  # The current position in the read
 
     # Go over the elements of the cigar string, update the current read position
     # as well as the current reference position each iteration so they are always accurate
     for parsed_cigar in parsed_cigar_list:
         base_count, cigar_op = parsed_cigar
-        if cigar_op == "M": # Matched sequence
+        if cigar_op == "M":  # Matched sequence
             start = current_position_in_read
             stop = current_position_in_read + base_count
             if reverse_complement:
@@ -157,9 +163,11 @@ def get_coverage_data_for_one_sam_record(sam_record: Dict[str, Any]) -> List[int
                     current_position_in_ref -= 1
                 else:
                     current_position_in_ref += 1
-        elif cigar_op == "I": # Insertions
+        elif cigar_op == "I":  # Insertions
             current_position_in_read += base_count
-        elif cigar_op == "D" or cigar_op == "S" or cigar_op == "H": # Skipped or deleted sequence
+        elif (
+            cigar_op == "D" or cigar_op == "S" or cigar_op == "H"
+        ):  # Skipped or deleted sequence
             current_position_in_read += base_count
             if reverse_complement:
                 current_position_in_ref -= base_count
@@ -169,12 +177,10 @@ def get_coverage_data_for_one_sam_record(sam_record: Dict[str, Any]) -> List[int
 
 
 def evaluate_all_sam_records(sam_record_list: List[Dict[str, Any]]):
-    """
-    """
-    position_to_read_depth: Dict[int, int] = {}
-    variant_to_read_depth: Dict[Variant, int] = {}
-    for sam_record in sam_record_list:
-        variant_list = variant_calling_for_one_sam_record(sam_record)
-        position_list = get_coverage_data_for_one_sam_record(sam_record)
- 
+    """ """
+    # position_to_read_depth: Dict[int, int] = {}
+    # variant_to_read_depth: Dict[Variant, int] = {}
+    # for sam_record in sam_record_list:
+    #    variant_list = variant_calling_for_one_sam_record(sam_record)
+    #    position_list = get_coverage_data_for_one_sam_record(sam_record)
     return
