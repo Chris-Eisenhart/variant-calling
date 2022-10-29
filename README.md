@@ -16,6 +16,11 @@ pipenv run pre-commit install -t pre-commit
 pipenv run pre-commit install -t pre-push
 ```
 
+## Testing
+```
+pipenv run pytest
+```
+
 ## Contributing
 The style is black + isort + flake8, additionally type hinting is enforced via mypy. 
 
