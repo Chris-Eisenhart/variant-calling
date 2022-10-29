@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 
-@dataclass(order=True)
+# Frozen so we can use it as a dict key
+@dataclass(order=True, frozen=True)
 class Variant:
     chrom: str
     pos: int
@@ -176,11 +177,27 @@ def get_coverage_data_for_one_sam_record(sam_record: Dict[str, Any]) -> List[int
     return position_list
 
 
-def evaluate_all_sam_records(sam_record_list: List[Dict[str, Any]]):
-    """ """
-    # position_to_read_depth: Dict[int, int] = {}
-    # variant_to_read_depth: Dict[Variant, int] = {}
-    # for sam_record in sam_record_list:
-    #    variant_list = variant_calling_for_one_sam_record(sam_record)
-    #    position_list = get_coverage_data_for_one_sam_record(sam_record)
-    return
+def evaluate_sam_record_list(
+    sam_record_list: List[Dict[str, Any]]
+) -> Tuple[Dict[Variant, int], Dict[int, int]]:
+    """
+    Evaluate a list of sam records, report two dicts, one that lists all valid variants and their read depth, another
+    that lists all valid positions and their read depth.
+    """
+    variant_to_read_depth: Dict[Variant, int] = {}
+    position_to_read_depth: Dict[int, int] = {}
+    for sam_record in sam_record_list:
+        variant_list = variant_calling_for_one_sam_record(sam_record)
+        if variant_list:
+            for variant in variant_list:
+                if variant_to_read_depth.get(variant):
+                    variant_to_read_depth[variant] += 1
+                else:
+                    variant_to_read_depth[variant] = 1
+        position_list = get_coverage_data_for_one_sam_record(sam_record)
+        for position in position_list:
+            if position_to_read_depth.get(position):
+                position_to_read_depth[position] += 1
+            else:
+                position_to_read_depth[position] = 1
+    return variant_to_read_depth, position_to_read_depth
