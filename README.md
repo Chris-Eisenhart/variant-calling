@@ -12,7 +12,7 @@ Clone the repo, build a docker image, then run it;
 git clone git@github.com:Chris-Eisenhart/variant-calling.git
 cd variant-calling
 docker build -t variant_calling .
-docker run -v ~/data:/data /data/input.sam /data/output_variant.tsv /data/output_coverage.tsv
+docker run -v ~/data:/data variant_calling /data/input.sam /data/output_variant.tsv /data/output_coverage.tsv
 ```
 
 ## Setup
