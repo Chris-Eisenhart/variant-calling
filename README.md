@@ -15,21 +15,6 @@ docker build -t variant_calling .
 docker run -v ~/data:/data variant_calling /data/input.sam /data/output_variant.tsv /data/output_coverage.tsv
 ```
 
-## Setup
-```sh
-# Install dependencies
-pipenv install --dev
-
-# Setup pre-commit and pre-push hooks
-pipenv run pre-commit install -t pre-commit
-pipenv run pre-commit install -t pre-push
-```
-
-## Testing
-```
-pipenv run pytest
-```
-
 ## Contributing
 The style is black + isort + flake8, additionally type hinting is enforced via mypy. 
 
@@ -43,5 +28,19 @@ pipenv run mypy .
 Keep all functions under 100 lines, take time to name variables appropriately, do not solve a previously
 solved problem a different way.
 
+# Setup
+```sh
+# Install dependencies
+pipenv install --dev
+
+# Setup pre-commit and pre-push hooks
+pipenv run pre-commit install -t pre-commit
+pipenv run pre-commit install -t pre-push
+```
+
+# Testing
+```
+pipenv run pytest
+```
 Reach out to Chris to get invited to the JIRA board! 
 
