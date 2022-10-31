@@ -6,6 +6,15 @@ from the alignment files.
 
 The repo uses BWA to perform alignments, then python code to read in the alignments and call variants.
 
+## Running
+Clone the repo, build a docker image, then run it;
+```
+git clone git@github.com:Chris-Eisenhart/variant-calling.git
+cd variant-calling
+docker build -t variant_calling .
+docker run -v ~/data:/data /data/input.sam /data/output_variant.tsv /data/output_coverage.tsv
+```
+
 ## Setup
 ```sh
 # Install dependencies
