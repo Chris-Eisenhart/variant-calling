@@ -34,5 +34,4 @@ USER appuser
 COPY . .
 
 # Run the executable
-ENTRYPOINT ["python", "-m", "variant_calling"]
-CMD ["10"]
+ENTRYPOINT ["python", "src/variant_calling"]

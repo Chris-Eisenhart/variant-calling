@@ -1,6 +1,7 @@
+import csv
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 
 # Frozen so we can use it as a dict key
@@ -10,6 +11,18 @@ class Variant:
     pos: int
     ref: str
     alt: str
+
+    def to_str(self):
+        return f"{self.chrom}-{self.pos}-{self.ref}-{self.alt}"
+
+
+@dataclass(order=True, frozen=True)
+class GenomicPosition:
+    chrom: str
+    pos: int
+
+    def to_str(self):
+        return f"{self.chrom}-{self.pos}"
 
 
 def get_reverse_complement(dna):
@@ -66,8 +79,8 @@ def variant_call(
     alignment_start_pos: int,
     reverse_complement: bool,
     read_variant_list: List[Tuple[int, str, str]],
-):
-    variant_list = []
+) -> Set[Variant]:
+    variant_set: Set[Variant] = set()
     total_bases_seen = 0
     for read_variant in read_variant_list:
         base_count, ref_base, alt_base = read_variant
@@ -80,13 +93,13 @@ def variant_call(
         else:
             variant_position = alignment_start_pos + total_bases_seen
             variant = Variant(chrom, variant_position, ref_base, alt_base)
-        variant_list.append(variant)
-    return variant_list
+        variant_set.add(variant)
+    return variant_set
 
 
 def variant_calling_for_one_sam_record(
     sam_record: Dict[str, Any]
-) -> Optional[List[Variant]]:
+) -> Optional[Set[Variant]]:
     """
     Identifies all variants in a single BWA alignment record. Returns a list of variant objects.
     """
@@ -112,10 +125,10 @@ def variant_calling_for_one_sam_record(
     ] = identify_and_validate_reference_bases(
         parsed_md_list, seq, qual, reverse_complement
     )
-    variant_list = variant_call(
+    variant_set = variant_call(
         chrom, alignment_start_pos, reverse_complement, read_variant_list
     )
-    return variant_list
+    return variant_set
 
 
 def parse_cigar_string(cigar_string: str) -> List[Tuple[int, str]]:
@@ -127,7 +140,9 @@ def parse_cigar_string(cigar_string: str) -> List[Tuple[int, str]]:
     return parsed_cigar_list
 
 
-def get_coverage_data_for_one_sam_record(sam_record: Dict[str, Any]) -> List[int]:
+def get_coverage_data_for_one_sam_record(
+    sam_record: Dict[str, Any]
+) -> Set[GenomicPosition]:
     """
     Determine the valid reference bases that are covered by this alignment where a valid base
     has a quality greater than or equal to 20 phred.
@@ -138,10 +153,11 @@ def get_coverage_data_for_one_sam_record(sam_record: Dict[str, Any]) -> List[int
     alignment_start_pos: int = int(sam_record["POS"])
     reverse_complement: bool = parse_sam_flag(int(sam_record["FLAG"]))
     qual: str = sam_record["QUAL"]
+    chrom: str = sam_record["RNAME"]
 
     # Process the string cigar into a machine readable list of tuples
     parsed_cigar_list: List[Tuple[int, str]] = parse_cigar_string(sam_record["CIGAR"])
-    position_list: List[int] = []  # The reference positions which are covered
+    position_set: Set[GenomicPosition] = set()  # The reference positions which are covered
     current_position_in_ref = (
         alignment_start_pos  # The current position in the reference genome
     )
@@ -154,12 +170,9 @@ def get_coverage_data_for_one_sam_record(sam_record: Dict[str, Any]) -> List[int
         if cigar_op == "M":  # Matched sequence
             start = current_position_in_read
             stop = current_position_in_read + base_count
-            if reverse_complement:
-                start = current_position_in_read - base_count
-                stop = current_position_in_read
             for char in qual[start:stop]:
                 if ord(char) >= 20:
-                    position_list.append(current_position_in_ref)
+                    position_set.add(GenomicPosition(chrom, current_position_in_ref))
                 if reverse_complement:
                     current_position_in_ref -= 1
                 else:
@@ -174,30 +187,91 @@ def get_coverage_data_for_one_sam_record(sam_record: Dict[str, Any]) -> List[int
                 current_position_in_ref -= base_count
             else:
                 current_position_in_ref += base_count
-    return position_list
+    return position_set
 
 
-def evaluate_sam_record_list(
-    sam_record_list: List[Dict[str, Any]]
-) -> Tuple[Dict[Variant, int], Dict[int, int]]:
+def evaluate_sam_file(
+    sam_file: str
+) -> Tuple[Dict[Variant, int], Dict[GenomicPosition, int]]:
     """
     Evaluate a list of sam records, report two dicts, one that lists all valid variants and their read depth, another
     that lists all valid positions and their read depth.
     """
     variant_to_read_depth: Dict[Variant, int] = {}
-    position_to_read_depth: Dict[int, int] = {}
-    for sam_record in sam_record_list:
-        variant_list = variant_calling_for_one_sam_record(sam_record)
-        if variant_list:
-            for variant in variant_list:
-                if variant_to_read_depth.get(variant):
-                    variant_to_read_depth[variant] += 1
+    position_to_read_depth: Dict[GenomicPosition, int] = {}
+    sam_header = [
+        "QNAME",
+        "FLAG",
+        "RNAME",
+        "POS",
+        "MAPQ",
+        "CIGAR",
+        "RNEXT",
+        "PNEXT",
+        "TLEN",
+        "SEQ",
+        "QUAL",
+        "NM",
+        "MD",
+        "AS",
+        "XS",
+        "XA",
+    ]
+    with open(sam_file, "r") as in_file:
+        while in_file.readline().startswith("@"):
+            continue # Skip headers
+        for sam_record in csv.DictReader(in_file, delimiter="\t", fieldnames=sam_header):
+            position_set = get_coverage_data_for_one_sam_record(sam_record)
+            for position in position_set:
+                if position_to_read_depth.get(position):
+                    position_to_read_depth[position] += 1
                 else:
-                    variant_to_read_depth[variant] = 1
-        position_list = get_coverage_data_for_one_sam_record(sam_record)
-        for position in position_list:
-            if position_to_read_depth.get(position):
-                position_to_read_depth[position] += 1
-            else:
-                position_to_read_depth[position] = 1
+                    position_to_read_depth[position] = 1
+            variant_set = variant_calling_for_one_sam_record(sam_record)
+            if variant_set:
+                for variant in variant_set:
+                    v_gen_pos = GenomicPosition(variant.chrom, variant.pos)
+                    if v_gen_pos in position_set:  # The base has passing quality
+                        if variant_to_read_depth.get(variant):
+                            variant_to_read_depth[variant] += 1
+                        else:
+                            variant_to_read_depth[variant] = 1
     return variant_to_read_depth, position_to_read_depth
+
+
+def write_variant_out_file(
+    variant_to_read_depth: Dict[Variant, int],
+    position_to_read_depth: Dict[GenomicPosition, int],
+    variant_out_file: str,
+):
+    with open(variant_out_file, "w") as out_file:
+        out_file.write("variant\tvar_read_depth\tfull_read_depth\n")
+        for variant, variant_read_depth in variant_to_read_depth.items():
+            read_depth = position_to_read_depth.get(
+                GenomicPosition(variant.chrom, variant.pos), 0
+            )
+            out_file.write(f"{variant.to_str()}\t{variant_read_depth}\t{read_depth}\n")
+
+
+def write_position_depth_out_file(
+    position_to_read_depth: Dict[GenomicPosition, int], position_out_file: str
+):
+    with open(position_out_file, "w") as out_file:
+        out_file.write("position\tread_depth\n")
+        for position, read_depth in position_to_read_depth.items():
+            out_file.write(f"{position.to_str()}\t{read_depth}\n")
+
+
+def call_variants_on_sam_file(
+    sam_file: str, variant_out_file: str, position_out_file: str
+):
+    """
+    Stream through the sam alignment file to gather variant and coverage information.
+    Write that information to file.
+    """
+    variant_to_read_depth, position_to_read_depth = evaluate_sam_file(sam_file)
+    write_variant_out_file(
+        variant_to_read_depth, position_to_read_depth, variant_out_file
+    )
+    write_position_depth_out_file(position_to_read_depth, position_out_file)
+    return
