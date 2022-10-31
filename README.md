@@ -28,7 +28,7 @@ pipenv run mypy .
 Keep all functions under 100 lines, take time to name variables appropriately, do not solve a previously
 solved problem a different way.
 
-# Setup
+### Setup
 ```sh
 # Install dependencies
 pipenv install --dev
@@ -38,7 +38,7 @@ pipenv run pre-commit install -t pre-commit
 pipenv run pre-commit install -t pre-push
 ```
 
-# Testing
+### Testing
 ```
 pipenv run pytest
 ```
